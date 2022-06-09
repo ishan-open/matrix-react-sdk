@@ -26,7 +26,6 @@ import dis from "../../../dispatcher/dispatcher";
 import { Action } from '../../../dispatcher/actions';
 import RoomContext from "../../../contexts/RoomContext";
 import { FocusComposerPayload } from '../../../dispatcher/payloads/FocusComposerPayload';
-import { canRedact } from "../../../utils/EventUtils";
 
 interface IProps {
     mxEvent: MatrixEvent;
@@ -97,7 +96,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
         const roomId = this.props.mxEvent.getRoomId();
         const myReactions = this.getReactions();
         if (myReactions.hasOwnProperty(reaction)) {
-            if (!canRedact(roomId, myReactions[reaction])) return;
+            if (this.props.mxEvent.isRedacted() || !this.context.canSelfRedact) return;
 
             MatrixClientPeg.get().redactEvent(roomId, myReactions[reaction].getId());
             dis.dispatch<FocusComposerPayload>({
@@ -124,10 +123,11 @@ class ReactionPicker extends React.Component<IProps, IState> {
     };
 
     private isEmojiDisabled = (unicode: string): boolean => {
-        const reaction = this.getReactions()[unicode];
+        if (!this.getReactions()[unicode]) return false;
+        if (this.props.mxEvent.isRedacted()) return false;
+        if (this.context.canSelfRedact) return false;
 
-        if (!reaction) return false;
-        return !canRedact(this.props.mxEvent.getRoomId(), reaction);
+        return true;
     };
 
     render() {
